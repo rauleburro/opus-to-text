@@ -31,9 +31,16 @@ Todo corre en tu dispositivo. El audio nunca se sube a ningún servidor.
 ## Desarrollo
 
 ```bash
-npm install
-npm run dev
+npm install        # instala dependencias
+npm run dev        # levanta Vite en modo dev
+npm run build      # build de producción a dist/
+npm run preview    # sirve el build
+npm test           # corre Vitest (modo CI)
+npm run test:watch # Vitest en watch mode
+npm run typecheck  # tsc -b --noEmit
 ```
+
+Stack: Vite 6 + React 19 + TypeScript + Tailwind 4 + Vitest 3 + React Testing Library + happy-dom.
 
 ## Decisiones de diseño
 
