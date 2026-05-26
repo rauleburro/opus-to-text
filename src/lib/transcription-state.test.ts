@@ -104,6 +104,57 @@ describe("transcription-state — transiciones inválidas son no-op", () => {
   });
 });
 
+describe("transcription-state — progreso (slice 3)", () => {
+  it("model-loading + model-progress actualiza payload sin cambiar status", () => {
+    const next = reducer(
+      { status: "model-loading" },
+      {
+        type: "model-progress",
+        percent: 42,
+        file: "model.onnx",
+        bytesLoaded: 1000,
+        bytesTotal: 2500,
+      },
+    );
+    expect(next.status).toBe("model-loading");
+    if (next.status === "model-loading") {
+      expect(next.percent).toBe(42);
+      expect(next.file).toBe("model.onnx");
+      expect(next.bytesLoaded).toBe(1000);
+      expect(next.bytesTotal).toBe(2500);
+    }
+  });
+
+  it("model-progress fuera de model-loading es no-op", () => {
+    const state: State = { status: "model-ready" };
+    const next = reducer(state, { type: "model-progress", percent: 50 });
+    expect(next).toEqual(state);
+  });
+
+  it("transcribing + transcribe-progress actualiza chunkIndex/totalChunks", () => {
+    const next = reducer(
+      { status: "transcribing", fileName: "voz.opus" },
+      { type: "transcribe-progress", chunkIndex: 2, totalChunks: 5 },
+    );
+    expect(next.status).toBe("transcribing");
+    if (next.status === "transcribing") {
+      expect(next.fileName).toBe("voz.opus");
+      expect(next.chunkIndex).toBe(2);
+      expect(next.totalChunks).toBe(5);
+    }
+  });
+
+  it("transcribe-progress fuera de transcribing es no-op", () => {
+    const state: State = { status: "decoding", fileName: "voz.opus" };
+    const next = reducer(state, {
+      type: "transcribe-progress",
+      chunkIndex: 1,
+      totalChunks: 3,
+    });
+    expect(next).toEqual(state);
+  });
+});
+
 describe("transcription-state — type narrowing", () => {
   it("permite TypeScript narrow correctamente en cada estado", () => {
     const state: State = { status: "done", fileName: "a.opus", text: "hola" };

@@ -71,8 +71,22 @@ function mapWorkerMessage(msg: WorkerToMainMessage): Event | null {
   switch (msg.type) {
     case "model-loading-started":
       return { type: "model-loading-started" };
+    case "model-progress":
+      return {
+        type: "model-progress",
+        percent: msg.percent,
+        file: msg.file,
+        bytesLoaded: msg.bytesLoaded,
+        bytesTotal: msg.bytesTotal,
+      };
     case "model-ready":
       return { type: "model-ready" };
+    case "transcribe-progress":
+      return {
+        type: "transcribe-progress",
+        chunkIndex: msg.chunkIndex,
+        totalChunks: msg.totalChunks,
+      };
     case "transcribe-done":
       return { type: "transcribe-done", text: msg.text };
     case "error":

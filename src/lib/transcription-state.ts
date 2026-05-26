@@ -1,17 +1,36 @@
 export type State =
   | { status: "idle" }
-  | { status: "model-loading" }
+  | {
+      status: "model-loading";
+      percent?: number;
+      file?: string;
+      bytesLoaded?: number;
+      bytesTotal?: number;
+    }
   | { status: "model-ready" }
   | { status: "decoding"; fileName: string }
-  | { status: "transcribing"; fileName: string }
+  | {
+      status: "transcribing";
+      fileName: string;
+      chunkIndex?: number;
+      totalChunks?: number;
+    }
   | { status: "done"; fileName: string; text: string }
   | { status: "error"; message: string };
 
 export type Event =
   | { type: "model-loading-started" }
+  | {
+      type: "model-progress";
+      percent: number;
+      file?: string;
+      bytesLoaded?: number;
+      bytesTotal?: number;
+    }
   | { type: "model-ready" }
   | { type: "file-selected"; file: File }
   | { type: "decode-done" }
+  | { type: "transcribe-progress"; chunkIndex: number; totalChunks: number }
   | { type: "transcribe-done"; text: string }
   | { type: "error"; message: string };
 
@@ -33,6 +52,15 @@ export function reducer(state: State, event: Event): State {
       if (event.type === "model-ready") {
         return { status: "model-ready" };
       }
+      if (event.type === "model-progress") {
+        return {
+          status: "model-loading",
+          percent: event.percent,
+          file: event.file,
+          bytesLoaded: event.bytesLoaded,
+          bytesTotal: event.bytesTotal,
+        };
+      }
       return state;
 
     case "model-ready":
@@ -48,6 +76,14 @@ export function reducer(state: State, event: Event): State {
       return state;
 
     case "transcribing":
+      if (event.type === "transcribe-progress") {
+        return {
+          status: "transcribing",
+          fileName: state.fileName,
+          chunkIndex: event.chunkIndex,
+          totalChunks: event.totalChunks,
+        };
+      }
       if (event.type === "transcribe-done") {
         return { status: "done", fileName: state.fileName, text: event.text };
       }

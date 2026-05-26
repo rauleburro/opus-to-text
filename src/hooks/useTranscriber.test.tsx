@@ -136,6 +136,57 @@ describe("useTranscriber", () => {
     }
   });
 
+  it("model-progress del worker actualiza el payload del state model-loading", async () => {
+    const { result } = renderHook(() => useTranscriber());
+    act(() => {
+      fakeWorker.emit({ type: "model-loading-started" });
+      fakeWorker.emit({
+        type: "model-progress",
+        percent: 37,
+        file: "encoder.onnx",
+        bytesLoaded: 1234,
+        bytesTotal: 5678,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe("model-loading");
+      if (result.current.state.status === "model-loading") {
+        expect(result.current.state.percent).toBe(37);
+        expect(result.current.state.file).toBe("encoder.onnx");
+      }
+    });
+  });
+
+  it("transcribe-progress del worker actualiza chunkIndex/totalChunks", async () => {
+    const { result } = renderHook(() => useTranscriber());
+    act(() => {
+      fakeWorker.emit({ type: "model-loading-started" });
+      fakeWorker.emit({ type: "model-ready" });
+    });
+
+    const file = new File([new Uint8Array([1])], "voz.opus");
+    await act(async () => {
+      await result.current.selectFile(file);
+    });
+
+    act(() => {
+      fakeWorker.emit({
+        type: "transcribe-progress",
+        chunkIndex: 2,
+        totalChunks: 5,
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe("transcribing");
+      if (result.current.state.status === "transcribing") {
+        expect(result.current.state.chunkIndex).toBe(2);
+        expect(result.current.state.totalChunks).toBe(5);
+      }
+    });
+  });
+
   it("error en decodeAudio se propaga como evento error", async () => {
     decodeAudioMock.mockRejectedValueOnce(new Error("decode failed"));
 

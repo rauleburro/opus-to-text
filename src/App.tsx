@@ -1,5 +1,7 @@
 import { useTranscriber } from "./hooks/useTranscriber";
 import { Dropzone } from "./components/Dropzone";
+import { ModelLoadingProgress } from "./components/ModelLoadingProgress";
+import { TranscriptionProgress } from "./components/TranscriptionProgress";
 import { TranscriptionResult } from "./components/TranscriptionResult";
 
 export function App() {
@@ -23,7 +25,12 @@ export function App() {
           )}
 
           {state.status === "model-loading" && (
-            <p className="text-slate-500">Descargando modelo (puede tardar la primera vez)…</p>
+            <ModelLoadingProgress
+              percent={state.percent}
+              file={state.file}
+              bytesLoaded={state.bytesLoaded}
+              bytesTotal={state.bytesTotal}
+            />
           )}
 
           {(state.status === "model-ready" ||
@@ -37,7 +44,10 @@ export function App() {
           )}
 
           {state.status === "transcribing" && (
-            <p className="text-slate-500">Transcribiendo…</p>
+            <TranscriptionProgress
+              chunkIndex={state.chunkIndex}
+              totalChunks={state.totalChunks}
+            />
           )}
 
           {state.status === "done" && (
