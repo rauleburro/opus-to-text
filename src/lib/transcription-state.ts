@@ -16,7 +16,7 @@ export type State =
       totalChunks?: number;
     }
   | { status: "done"; fileName: string; text: string }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string; modelLoaded: boolean };
 
 export type Event =
   | { type: "model-loading-started" }
@@ -32,13 +32,37 @@ export type Event =
   | { type: "decode-done" }
   | { type: "transcribe-progress"; chunkIndex: number; totalChunks: number }
   | { type: "transcribe-done"; text: string }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "reset" };
 
 export const initialState: State = { status: "idle" };
 
+const modelWasLoaded = (state: State): boolean => {
+  switch (state.status) {
+    case "idle":
+    case "model-loading":
+      return false;
+    case "model-ready":
+    case "decoding":
+    case "transcribing":
+    case "done":
+      return true;
+    case "error":
+      return state.modelLoaded;
+  }
+};
+
 export function reducer(state: State, event: Event): State {
   if (event.type === "error") {
-    return { status: "error", message: event.message };
+    return { status: "error", message: event.message, modelLoaded: modelWasLoaded(state) };
+  }
+
+  if (event.type === "reset") {
+    if (state.status === "done") return { status: "model-ready" };
+    if (state.status === "error") {
+      return state.modelLoaded ? { status: "model-ready" } : { status: "idle" };
+    }
+    return state;
   }
 
   switch (state.status) {

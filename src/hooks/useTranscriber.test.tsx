@@ -187,6 +187,25 @@ describe("useTranscriber", () => {
     });
   });
 
+  it("reset desde done vuelve a model-ready", async () => {
+    const { result } = renderHook(() => useTranscriber());
+    act(() => {
+      fakeWorker.emit({ type: "model-loading-started" });
+      fakeWorker.emit({ type: "model-ready" });
+    });
+
+    const file = new File([new Uint8Array([1])], "voz.opus");
+    await act(async () => {
+      await result.current.selectFile(file);
+    });
+    act(() => fakeWorker.emit({ type: "transcribe-done", text: "hola" }));
+
+    await waitFor(() => expect(result.current.state.status).toBe("done"));
+
+    act(() => result.current.reset());
+    expect(result.current.state.status).toBe("model-ready");
+  });
+
   it("error en decodeAudio se propaga como evento error", async () => {
     decodeAudioMock.mockRejectedValueOnce(new Error("decode failed"));
 

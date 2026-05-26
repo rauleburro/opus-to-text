@@ -155,6 +155,78 @@ describe("transcription-state — progreso (slice 3)", () => {
   });
 });
 
+describe("transcription-state — reset (slice 4)", () => {
+  it("done + reset → model-ready (modelo ya cargado)", () => {
+    const next = reducer(
+      { status: "done", fileName: "x", text: "y" },
+      { type: "reset" },
+    );
+    expect(next.status).toBe("model-ready");
+  });
+
+  it("error con modelLoaded true + reset → model-ready", () => {
+    const next = reducer(
+      { status: "error", message: "boom", modelLoaded: true },
+      { type: "reset" },
+    );
+    expect(next.status).toBe("model-ready");
+  });
+
+  it("error con modelLoaded false + reset → idle", () => {
+    const next = reducer(
+      { status: "error", message: "boom", modelLoaded: false },
+      { type: "reset" },
+    );
+    expect(next.status).toBe("idle");
+  });
+
+  it("reset desde estados intermedios es no-op", () => {
+    const intermediates: State[] = [
+      { status: "model-loading" },
+      { status: "decoding", fileName: "x" },
+      { status: "transcribing", fileName: "x" },
+    ];
+    for (const state of intermediates) {
+      const next = reducer(state, { type: "reset" });
+      expect(next).toEqual(state);
+    }
+  });
+
+  it("reset desde idle o model-ready es no-op", () => {
+    expect(reducer({ status: "idle" }, { type: "reset" })).toEqual({ status: "idle" });
+    expect(reducer({ status: "model-ready" }, { type: "reset" })).toEqual({
+      status: "model-ready",
+    });
+  });
+
+  it("error desde model-ready/done/transcribing setea modelLoaded=true", () => {
+    const states: State[] = [
+      { status: "model-ready" },
+      { status: "decoding", fileName: "x" },
+      { status: "transcribing", fileName: "x" },
+      { status: "done", fileName: "x", text: "y" },
+    ];
+    for (const state of states) {
+      const next = reducer(state, { type: "error", message: "boom" });
+      expect(next.status).toBe("error");
+      if (next.status === "error") {
+        expect(next.modelLoaded).toBe(true);
+      }
+    }
+  });
+
+  it("error desde idle/model-loading setea modelLoaded=false", () => {
+    const states: State[] = [{ status: "idle" }, { status: "model-loading" }];
+    for (const state of states) {
+      const next = reducer(state, { type: "error", message: "boom" });
+      expect(next.status).toBe("error");
+      if (next.status === "error") {
+        expect(next.modelLoaded).toBe(false);
+      }
+    }
+  });
+});
+
 describe("transcription-state — type narrowing", () => {
   it("permite TypeScript narrow correctamente en cada estado", () => {
     const state: State = { status: "done", fileName: "a.opus", text: "hola" };

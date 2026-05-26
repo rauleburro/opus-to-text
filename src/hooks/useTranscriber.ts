@@ -12,6 +12,7 @@ import type { MainToWorkerMessage, WorkerToMainMessage } from "../lib/worker-pro
 export interface UseTranscriberResult {
   state: State;
   selectFile: (file: File) => Promise<void>;
+  reset: () => void;
 }
 
 export function useTranscriber(): UseTranscriberResult {
@@ -64,7 +65,11 @@ export function useTranscriber(): UseTranscriberResult {
     }
   }, []);
 
-  return { state, selectFile };
+  const reset = useCallback(() => {
+    dispatch({ type: "reset" });
+  }, []);
+
+  return { state, selectFile, reset };
 }
 
 function mapWorkerMessage(msg: WorkerToMainMessage): Event | null {
