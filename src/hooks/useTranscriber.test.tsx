@@ -136,24 +136,31 @@ describe("useTranscriber", () => {
     }
   });
 
-  it("model-progress del worker actualiza el payload del state model-loading", async () => {
+  it("model-progress del worker agrega archivos al state model-loading", async () => {
     const { result } = renderHook(() => useTranscriber());
     act(() => {
       fakeWorker.emit({ type: "model-loading-started" });
       fakeWorker.emit({
         type: "model-progress",
-        percent: 37,
         file: "encoder.onnx",
+        percent: 37,
         bytesLoaded: 1234,
         bytesTotal: 5678,
+      });
+      fakeWorker.emit({
+        type: "model-progress",
+        file: "decoder.onnx",
+        percent: 10,
       });
     });
 
     await waitFor(() => {
       expect(result.current.state.status).toBe("model-loading");
       if (result.current.state.status === "model-loading") {
-        expect(result.current.state.percent).toBe(37);
-        expect(result.current.state.file).toBe("encoder.onnx");
+        expect(result.current.state.files).toHaveLength(2);
+        expect(result.current.state.files[0]!.name).toBe("encoder.onnx");
+        expect(result.current.state.files[0]!.percent).toBe(37);
+        expect(result.current.state.files[1]!.name).toBe("decoder.onnx");
       }
     });
   });

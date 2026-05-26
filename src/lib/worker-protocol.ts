@@ -12,8 +12,8 @@ export type WorkerToMainMessage =
   | { type: "model-loading-started" }
   | {
       type: "model-progress";
+      file: string;
       percent: number;
-      file?: string;
       bytesLoaded?: number;
       bytesTotal?: number;
     }

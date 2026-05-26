@@ -2,6 +2,7 @@ import { useTranscriber } from "./hooks/useTranscriber";
 import { Dropzone } from "./components/Dropzone";
 import { ModelLoadingProgress } from "./components/ModelLoadingProgress";
 import { PrivacyNote } from "./components/PrivacyNote";
+import { Spinner } from "./components/Spinner";
 import { TranscriptionError } from "./components/TranscriptionError";
 import { TranscriptionProgress } from "./components/TranscriptionProgress";
 import { TranscriptionResult } from "./components/TranscriptionResult";
@@ -29,12 +30,7 @@ export function App() {
           )}
 
           {state.status === "model-loading" && (
-            <ModelLoadingProgress
-              percent={state.percent}
-              file={state.file}
-              bytesLoaded={state.bytesLoaded}
-              bytesTotal={state.bytesTotal}
-            />
+            <ModelLoadingProgress files={state.files} />
           )}
 
           {(state.status === "model-ready" ||
@@ -44,7 +40,7 @@ export function App() {
           )}
 
           {state.status === "decoding" && (
-            <p className="text-slate-500">Decodificando audio…</p>
+            <Spinner label={`Decodificando ${state.fileName}…`} />
           )}
 
           {state.status === "transcribing" && (

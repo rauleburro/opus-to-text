@@ -1,12 +1,13 @@
+export interface ModelFileProgress {
+  name: string;
+  percent: number;
+  bytesLoaded?: number;
+  bytesTotal?: number;
+}
+
 export type State =
   | { status: "idle" }
-  | {
-      status: "model-loading";
-      percent?: number;
-      file?: string;
-      bytesLoaded?: number;
-      bytesTotal?: number;
-    }
+  | { status: "model-loading"; files: ModelFileProgress[] }
   | { status: "model-ready" }
   | { status: "decoding"; fileName: string }
   | {
@@ -22,8 +23,8 @@ export type Event =
   | { type: "model-loading-started" }
   | {
       type: "model-progress";
+      file: string;
       percent: number;
-      file?: string;
       bytesLoaded?: number;
       bytesTotal?: number;
     }
@@ -52,6 +53,17 @@ const modelWasLoaded = (state: State): boolean => {
   }
 };
 
+const upsertFile = (
+  files: ModelFileProgress[],
+  update: ModelFileProgress,
+): ModelFileProgress[] => {
+  const existingIndex = files.findIndex((f) => f.name === update.name);
+  if (existingIndex === -1) return [...files, update];
+  const next = files.slice();
+  next[existingIndex] = update;
+  return next;
+};
+
 export function reducer(state: State, event: Event): State {
   if (event.type === "error") {
     return { status: "error", message: event.message, modelLoaded: modelWasLoaded(state) };
@@ -68,7 +80,7 @@ export function reducer(state: State, event: Event): State {
   switch (state.status) {
     case "idle":
       if (event.type === "model-loading-started") {
-        return { status: "model-loading" };
+        return { status: "model-loading", files: [] };
       }
       return state;
 
@@ -79,10 +91,12 @@ export function reducer(state: State, event: Event): State {
       if (event.type === "model-progress") {
         return {
           status: "model-loading",
-          percent: event.percent,
-          file: event.file,
-          bytesLoaded: event.bytesLoaded,
-          bytesTotal: event.bytesTotal,
+          files: upsertFile(state.files, {
+            name: event.file,
+            percent: event.percent,
+            bytesLoaded: event.bytesLoaded,
+            bytesTotal: event.bytesTotal,
+          }),
         };
       }
       return state;

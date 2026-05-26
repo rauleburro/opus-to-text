@@ -18,7 +18,7 @@ describe("transcription-state — happy path", () => {
 
   it("model-loading + model-ready → model-ready", () => {
     const next = reducer(
-      { status: "model-loading" },
+      { status: "model-loading", files: [] },
       { type: "model-ready" },
     );
     expect(next.status).toBe("model-ready");
@@ -61,7 +61,7 @@ describe("transcription-state — errores", () => {
   it("acepta error desde cualquier estado", () => {
     const states: State[] = [
       { status: "idle" },
-      { status: "model-loading" },
+      { status: "model-loading", files: [] },
       { status: "model-ready" },
       { status: "decoding", fileName: "x" },
       { status: "transcribing", fileName: "x" },
@@ -105,29 +105,96 @@ describe("transcription-state — transiciones inválidas son no-op", () => {
 });
 
 describe("transcription-state — progreso (slice 3)", () => {
-  it("model-loading + model-progress actualiza payload sin cambiar status", () => {
+  it("model-loading + model-progress agrega un archivo nuevo a files", () => {
     const next = reducer(
-      { status: "model-loading" },
+      { status: "model-loading", files: [] },
       {
         type: "model-progress",
+        file: "encoder.onnx",
         percent: 42,
-        file: "model.onnx",
         bytesLoaded: 1000,
         bytesTotal: 2500,
       },
     );
     expect(next.status).toBe("model-loading");
     if (next.status === "model-loading") {
-      expect(next.percent).toBe(42);
-      expect(next.file).toBe("model.onnx");
-      expect(next.bytesLoaded).toBe(1000);
-      expect(next.bytesTotal).toBe(2500);
+      expect(next.files).toHaveLength(1);
+      expect(next.files[0]).toEqual({
+        name: "encoder.onnx",
+        percent: 42,
+        bytesLoaded: 1000,
+        bytesTotal: 2500,
+      });
+    }
+  });
+
+  it("model-progress sobre el mismo archivo lo actualiza (upsert)", () => {
+    let state: State = { status: "model-loading", files: [] };
+    state = reducer(state, {
+      type: "model-progress",
+      file: "encoder.onnx",
+      percent: 10,
+    });
+    state = reducer(state, {
+      type: "model-progress",
+      file: "encoder.onnx",
+      percent: 80,
+    });
+    expect(state.status).toBe("model-loading");
+    if (state.status === "model-loading") {
+      expect(state.files).toHaveLength(1);
+      expect(state.files[0]!.percent).toBe(80);
+    }
+  });
+
+  it("model-progress sobre archivo distinto agrega una entrada nueva", () => {
+    let state: State = { status: "model-loading", files: [] };
+    state = reducer(state, {
+      type: "model-progress",
+      file: "encoder.onnx",
+      percent: 50,
+    });
+    state = reducer(state, {
+      type: "model-progress",
+      file: "decoder.onnx",
+      percent: 30,
+    });
+    expect(state.status).toBe("model-loading");
+    if (state.status === "model-loading") {
+      expect(state.files).toHaveLength(2);
+      expect(state.files.map((f) => f.name)).toEqual(["encoder.onnx", "decoder.onnx"]);
+    }
+  });
+
+  it("model-progress preserva orden de aparición de archivos", () => {
+    let state: State = { status: "model-loading", files: [] };
+    state = reducer(state, {
+      type: "model-progress",
+      file: "a.onnx",
+      percent: 10,
+    });
+    state = reducer(state, {
+      type: "model-progress",
+      file: "b.onnx",
+      percent: 10,
+    });
+    state = reducer(state, {
+      type: "model-progress",
+      file: "a.onnx",
+      percent: 90,
+    });
+    if (state.status === "model-loading") {
+      expect(state.files.map((f) => f.name)).toEqual(["a.onnx", "b.onnx"]);
     }
   });
 
   it("model-progress fuera de model-loading es no-op", () => {
     const state: State = { status: "model-ready" };
-    const next = reducer(state, { type: "model-progress", percent: 50 });
+    const next = reducer(state, {
+      type: "model-progress",
+      file: "x.onnx",
+      percent: 50,
+    });
     expect(next).toEqual(state);
   });
 
@@ -182,7 +249,7 @@ describe("transcription-state — reset (slice 4)", () => {
 
   it("reset desde estados intermedios es no-op", () => {
     const intermediates: State[] = [
-      { status: "model-loading" },
+      { status: "model-loading", files: [] },
       { status: "decoding", fileName: "x" },
       { status: "transcribing", fileName: "x" },
     ];
@@ -216,7 +283,7 @@ describe("transcription-state — reset (slice 4)", () => {
   });
 
   it("error desde idle/model-loading setea modelLoaded=false", () => {
-    const states: State[] = [{ status: "idle" }, { status: "model-loading" }];
+    const states: State[] = [{ status: "idle" }, { status: "model-loading", files: [] }];
     for (const state of states) {
       const next = reducer(state, { type: "error", message: "boom" });
       expect(next.status).toBe("error");

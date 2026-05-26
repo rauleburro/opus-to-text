@@ -3,8 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { TranscriptionProgress } from "./TranscriptionProgress";
 
 describe("TranscriptionProgress", () => {
-  it("muestra 'transcribiendo' como label base", () => {
-    render(<TranscriptionProgress />);
+  it("muestra label 'transcribiendo' cuando hay chunks", () => {
+    render(<TranscriptionProgress chunkIndex={1} totalChunks={3} />);
     expect(screen.getByText(/transcribiendo/i)).toBeInTheDocument();
   });
 
@@ -24,6 +24,17 @@ describe("TranscriptionProgress", () => {
     const bar = screen.getByRole("progressbar");
     expect(bar).toBeInTheDocument();
     expect(bar.getAttribute("aria-valuenow")).toBeNull();
+  });
+
+  it("sin chunkIndex la barra interna está animada (pulse)", () => {
+    const { container } = render(<TranscriptionProgress />);
+    const inner = container.querySelector(".animate-pulse");
+    expect(inner).not.toBeNull();
+  });
+
+  it("muestra mensaje 'preparando' antes del primer chunk", () => {
+    render(<TranscriptionProgress />);
+    expect(screen.getByText(/preparando|iniciando/i)).toBeInTheDocument();
   });
 
   it("muestra 'WebGPU' cuando backend='webgpu'", () => {

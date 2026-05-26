@@ -89,8 +89,8 @@ function mapWorkerMessage(msg: WorkerToMainMessage): Event | null {
     case "model-progress":
       return {
         type: "model-progress",
-        percent: msg.percent,
         file: msg.file,
+        percent: msg.percent,
         bytesLoaded: msg.bytesLoaded,
         bytesTotal: msg.bytesTotal,
       };

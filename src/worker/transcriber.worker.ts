@@ -33,14 +33,23 @@ const ensureModel = async (): Promise<void> => {
     post({ type: "model-loading-started" });
 
     const progress_callback = (info: ProgressInfo) => {
+      if (!info.file) return;
+      if (info.status === "initiate" || info.status === "download") {
+        post({ type: "model-progress", file: info.file, percent: 0 });
+        return;
+      }
       if (info.status === "progress" && typeof info.progress === "number") {
         post({
           type: "model-progress",
-          percent: Math.round(info.progress),
           file: info.file,
+          percent: Math.round(info.progress),
           bytesLoaded: info.loaded,
           bytesTotal: info.total,
         });
+        return;
+      }
+      if (info.status === "done") {
+        post({ type: "model-progress", file: info.file, percent: 100 });
       }
     };
 

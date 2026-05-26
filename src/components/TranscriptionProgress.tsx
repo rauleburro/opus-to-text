@@ -21,7 +21,9 @@ export function TranscriptionProgress({
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between text-sm">
-        <span className="text-slate-700">Transcribiendo…</span>
+        <span className="text-slate-700">
+          {hasProgress ? "Transcribiendo…" : "Preparando transcripción…"}
+        </span>
         {hasProgress && (
           <span className="font-mono text-slate-500">
             chunk {chunkIndex} de {totalChunks}
@@ -36,8 +38,10 @@ export function TranscriptionProgress({
         className="h-2 w-full overflow-hidden rounded-full bg-slate-200"
       >
         <div
-          className="h-full bg-slate-900 transition-all"
-          style={{ width: percent !== null ? `${percent}%` : "30%" }}
+          className={`h-full bg-slate-900 transition-all ${
+            percent === null ? "animate-pulse w-1/3" : ""
+          }`}
+          style={percent !== null ? { width: `${percent}%` } : undefined}
         />
       </div>
       {backend && (
