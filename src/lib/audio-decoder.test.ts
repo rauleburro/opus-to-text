@@ -1,13 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { decodeAudio } from "./audio-decoder";
-
-/**
- * happy-dom no incluye Web Audio API. Stubbeamos AudioContext y
- * OfflineAudioContext con implementaciones mínimas que devuelven
- * AudioBuffers controlados, para verificar la orquestación del decoder.
- *
- * En slice #5 ampliamos esto con fixtures reales y validación funcional.
- */
+import {
+  DecodeFailedError,
+  SUPPORTED_EXTENSIONS,
+  UnsupportedFormatError,
+  decodeAudio,
+} from "./audio-decoder";
 
 type FakeAudioBuffer = {
   numberOfChannels: number;
@@ -37,15 +34,10 @@ const createFakeBuffer = (opts: {
   };
 };
 
+let decodeImpl: (buf: ArrayBuffer) => Promise<FakeAudioBuffer>;
+
 class FakeAudioContext {
-  decodeAudioData = vi.fn(async (_buffer: ArrayBuffer): Promise<FakeAudioBuffer> => {
-    return createFakeBuffer({
-      channels: 1,
-      sampleRate: 48000,
-      durationSeconds: 1,
-      fillValue: 0.5,
-    });
-  });
+  decodeAudioData = vi.fn(async (buf: ArrayBuffer) => decodeImpl(buf));
   close = vi.fn();
 }
 
@@ -56,14 +48,11 @@ class FakeOfflineAudioContext {
     public length: number,
     public sampleRate: number,
   ) {}
-  createBufferSource = vi.fn(() => {
-    const source = {
-      buffer: null as FakeAudioBuffer | null,
-      connect: vi.fn(),
-      start: vi.fn(),
-    };
-    return source;
-  });
+  createBufferSource = vi.fn(() => ({
+    buffer: null as FakeAudioBuffer | null,
+    connect: vi.fn(),
+    start: vi.fn(),
+  }));
   startRendering = vi.fn(async (): Promise<FakeAudioBuffer> => {
     return createFakeBuffer({
       channels: 1,
@@ -75,6 +64,8 @@ class FakeOfflineAudioContext {
 }
 
 beforeEach(() => {
+  decodeImpl = async () =>
+    createFakeBuffer({ channels: 1, sampleRate: 48000, durationSeconds: 1 });
   vi.stubGlobal("AudioContext", FakeAudioContext);
   vi.stubGlobal("OfflineAudioContext", FakeOfflineAudioContext);
 });
@@ -83,15 +74,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("audio-decoder", () => {
-  it("acepta un ArrayBuffer y devuelve sampleRate 16000", async () => {
-    const buffer = new ArrayBuffer(8);
-    const result = await decodeAudio(buffer);
+describe("audio-decoder — output shape", () => {
+  it("acepta ArrayBuffer y devuelve sampleRate 16000", async () => {
+    const result = await decodeAudio(new ArrayBuffer(8));
     expect(result.sampleRate).toBe(16000);
   });
 
-  it("acepta un File y lo convierte a ArrayBuffer internamente", async () => {
-    const file = new File([new Uint8Array([1, 2, 3, 4])], "voz.opus", {
+  it("acepta File con extensión válida", async () => {
+    const file = new File([new Uint8Array([1, 2, 3])], "voz.opus", {
       type: "audio/ogg",
     });
     const result = await decodeAudio(file);
@@ -99,14 +89,34 @@ describe("audio-decoder", () => {
     expect(result.samples).toBeInstanceOf(Float32Array);
   });
 
-  it("devuelve un Float32Array mono (no estéreo)", async () => {
-    const buffer = new ArrayBuffer(8);
-    const result = await decodeAudio(buffer);
-    // Para 1 segundo a 16000 Hz mono → 16000 samples
+  it("devuelve Float32Array mono", async () => {
+    const result = await decodeAudio(new ArrayBuffer(8));
     expect(result.samples.length).toBe(16000);
   });
+});
 
-  it("usa OfflineAudioContext con (1 canal, length apropiado, 16000 Hz)", async () => {
+describe("audio-decoder — multi-formato (slice 5)", () => {
+  it.each(SUPPORTED_EXTENSIONS)(
+    "acepta archivo con extensión %s",
+    async (ext) => {
+      const file = new File([new Uint8Array([1, 2, 3])], `voz${ext}`);
+      const result = await decodeAudio(file);
+      expect(result.sampleRate).toBe(16000);
+    },
+  );
+
+  it("acepta extensiones en mayúsculas", async () => {
+    const file = new File([new Uint8Array([1, 2, 3])], "VOZ.OPUS");
+    const result = await decodeAudio(file);
+    expect(result.sampleRate).toBe(16000);
+  });
+});
+
+describe("audio-decoder — downmix estéreo a mono", () => {
+  it("input estéreo es procesado por OfflineAudioContext con 1 canal", async () => {
+    decodeImpl = async () =>
+      createFakeBuffer({ channels: 2, sampleRate: 48000, durationSeconds: 1 });
+
     const oacSpy = vi.fn();
     class TrackingOAC extends FakeOfflineAudioContext {
       constructor(channels: number, length: number, sampleRate: number) {
@@ -116,12 +126,73 @@ describe("audio-decoder", () => {
     }
     vi.stubGlobal("OfflineAudioContext", TrackingOAC);
 
-    const buffer = new ArrayBuffer(8);
-    await decodeAudio(buffer);
+    const result = await decodeAudio(new ArrayBuffer(8));
 
-    expect(oacSpy).toHaveBeenCalledTimes(1);
-    const [channels, , sampleRate] = oacSpy.mock.calls[0]!;
+    const [channels] = oacSpy.mock.calls[0]!;
     expect(channels).toBe(1);
-    expect(sampleRate).toBe(16000);
+    expect(result.samples).toBeInstanceOf(Float32Array);
+  });
+});
+
+describe("audio-decoder — resample preserva duración", () => {
+  it("48kHz / 1s → 16000 samples (±1)", async () => {
+    decodeImpl = async () =>
+      createFakeBuffer({ channels: 1, sampleRate: 48000, durationSeconds: 1 });
+    const result = await decodeAudio(new ArrayBuffer(8));
+    expect(Math.abs(result.samples.length - 16000)).toBeLessThanOrEqual(1);
+  });
+
+  it("8kHz / 2s → 32000 samples (±1)", async () => {
+    decodeImpl = async () =>
+      createFakeBuffer({ channels: 1, sampleRate: 8000, durationSeconds: 2 });
+    const result = await decodeAudio(new ArrayBuffer(8));
+    expect(Math.abs(result.samples.length - 32000)).toBeLessThanOrEqual(1);
+  });
+
+  it("44.1kHz / 0.5s → 8000 samples (±1)", async () => {
+    decodeImpl = async () =>
+      createFakeBuffer({ channels: 1, sampleRate: 44100, durationSeconds: 0.5 });
+    const result = await decodeAudio(new ArrayBuffer(8));
+    expect(Math.abs(result.samples.length - 8000)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("audio-decoder — errores", () => {
+  it("File con extensión no soportada → UnsupportedFormatError", async () => {
+    const file = new File([new Uint8Array([1, 2, 3])], "documento.txt");
+    await expect(decodeAudio(file)).rejects.toThrow(UnsupportedFormatError);
+  });
+
+  it("UnsupportedFormatError expone la extensión rechazada", async () => {
+    const file = new File([new Uint8Array([1])], "x.json");
+    try {
+      await decodeAudio(file);
+      throw new Error("debió fallar");
+    } catch (error) {
+      expect(error).toBeInstanceOf(UnsupportedFormatError);
+      if (error instanceof UnsupportedFormatError) {
+        expect(error.extension).toBe(".json");
+      }
+    }
+  });
+
+  it("File sin extensión → UnsupportedFormatError", async () => {
+    const file = new File([new Uint8Array([1])], "audio");
+    await expect(decodeAudio(file)).rejects.toThrow(UnsupportedFormatError);
+  });
+
+  it("decodeAudioData falla → DecodeFailedError", async () => {
+    decodeImpl = async () => {
+      throw new Error("audio bytes corruptos");
+    };
+    const file = new File([new Uint8Array([0xff, 0xff])], "x.opus");
+    await expect(decodeAudio(file)).rejects.toThrow(DecodeFailedError);
+  });
+
+  it("ArrayBuffer corrupto → DecodeFailedError", async () => {
+    decodeImpl = async () => {
+      throw new Error("invalid data");
+    };
+    await expect(decodeAudio(new ArrayBuffer(8))).rejects.toThrow(DecodeFailedError);
   });
 });

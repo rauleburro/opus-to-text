@@ -2,6 +2,7 @@ import { useTranscriber } from "./hooks/useTranscriber";
 import { Dropzone } from "./components/Dropzone";
 import { ModelLoadingProgress } from "./components/ModelLoadingProgress";
 import { TranscriptionProgress } from "./components/TranscriptionProgress";
+import { TranscriptionError } from "./components/TranscriptionError";
 import { TranscriptionResult } from "./components/TranscriptionResult";
 
 export function App() {
@@ -59,17 +60,7 @@ export function App() {
           )}
 
           {state.status === "error" && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-4 text-red-800">
-              <p className="font-medium">Hubo un error</p>
-              <p className="mt-1 text-sm">{state.message}</p>
-              <button
-                type="button"
-                onClick={reset}
-                className="mt-3 rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 shadow-sm hover:bg-red-50"
-              >
-                Reintentar
-              </button>
-            </div>
+            <TranscriptionError message={state.message} onRetry={reset} />
           )}
         </section>
       </div>
