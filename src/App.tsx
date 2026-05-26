@@ -1,24 +1,27 @@
 import { useTranscriber } from "./hooks/useTranscriber";
 import { Dropzone } from "./components/Dropzone";
 import { ModelLoadingProgress } from "./components/ModelLoadingProgress";
-import { TranscriptionProgress } from "./components/TranscriptionProgress";
+import { PrivacyNote } from "./components/PrivacyNote";
 import { TranscriptionError } from "./components/TranscriptionError";
+import { TranscriptionProgress } from "./components/TranscriptionProgress";
 import { TranscriptionResult } from "./components/TranscriptionResult";
 
 export function App() {
-  const { state, selectFile, reset } = useTranscriber();
+  const { state, backend, selectFile, reset } = useTranscriber();
 
   const canSelect = state.status === "model-ready";
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto max-w-2xl p-8">
-        <header className="mb-6">
+      <div className="mx-auto max-w-2xl space-y-6 p-8">
+        <header>
           <h1 className="text-3xl font-bold">opus-to-text</h1>
           <p className="mt-2 text-slate-600">
             Transcribí audios <code>.opus</code> a texto en español, todo en tu navegador.
           </p>
         </header>
+
+        <PrivacyNote />
 
         <section className="space-y-4">
           {state.status === "idle" && (
@@ -48,6 +51,7 @@ export function App() {
             <TranscriptionProgress
               chunkIndex={state.chunkIndex}
               totalChunks={state.totalChunks}
+              backend={backend ?? undefined}
             />
           )}
 

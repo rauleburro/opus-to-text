@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import TranscriberWorker from "../worker/transcriber.worker?worker";
 import { decodeAudio } from "../lib/audio-decoder";
 import {
@@ -7,16 +7,22 @@ import {
   type Event,
   type State,
 } from "../lib/transcription-state";
-import type { MainToWorkerMessage, WorkerToMainMessage } from "../lib/worker-protocol";
+import type {
+  Backend,
+  MainToWorkerMessage,
+  WorkerToMainMessage,
+} from "../lib/worker-protocol";
 
 export interface UseTranscriberResult {
   state: State;
+  backend: Backend | null;
   selectFile: (file: File) => Promise<void>;
   reset: () => void;
 }
 
 export function useTranscriber(): UseTranscriberResult {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [backend, setBackend] = useState<Backend | null>(null);
   const workerRef = useRef<Worker | null>(null);
 
   useEffect(() => {
@@ -25,6 +31,10 @@ export function useTranscriber(): UseTranscriberResult {
 
     const listener = (event: MessageEvent<WorkerToMainMessage>) => {
       const msg = event.data;
+      if (msg.type === "backend") {
+        setBackend(msg.backend);
+        return;
+      }
       const mapped = mapWorkerMessage(msg);
       if (mapped) dispatch(mapped);
     };
@@ -69,7 +79,7 @@ export function useTranscriber(): UseTranscriberResult {
     dispatch({ type: "reset" });
   }, []);
 
-  return { state, selectFile, reset };
+  return { state, backend, selectFile, reset };
 }
 
 function mapWorkerMessage(msg: WorkerToMainMessage): Event | null {
@@ -96,5 +106,7 @@ function mapWorkerMessage(msg: WorkerToMainMessage): Event | null {
       return { type: "transcribe-done", text: msg.text };
     case "error":
       return { type: "error", message: msg.message };
+    case "backend":
+      return null;
   }
 }

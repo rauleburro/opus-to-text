@@ -25,4 +25,21 @@ describe("TranscriptionProgress", () => {
     expect(bar).toBeInTheDocument();
     expect(bar.getAttribute("aria-valuenow")).toBeNull();
   });
+
+  it("muestra 'WebGPU' cuando backend='webgpu'", () => {
+    render(<TranscriptionProgress backend="webgpu" />);
+    expect(screen.getByText(/webgpu/i)).toBeInTheDocument();
+  });
+
+  it("muestra 'WASM (más lento)' cuando backend='wasm'", () => {
+    render(<TranscriptionProgress backend="wasm" />);
+    expect(screen.getByText(/wasm/i)).toBeInTheDocument();
+    expect(screen.getByText(/más lento/i)).toBeInTheDocument();
+  });
+
+  it("sin backend no muestra etiqueta de backend", () => {
+    render(<TranscriptionProgress />);
+    expect(screen.queryByText(/webgpu/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/wasm/i)).not.toBeInTheDocument();
+  });
 });

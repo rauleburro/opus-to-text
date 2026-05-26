@@ -6,6 +6,8 @@ export type MainToWorkerMessage =
       sampleRate: number;
     };
 
+export type Backend = "webgpu" | "wasm";
+
 export type WorkerToMainMessage =
   | { type: "model-loading-started" }
   | {
@@ -15,6 +17,7 @@ export type WorkerToMainMessage =
       bytesLoaded?: number;
       bytesTotal?: number;
     }
+  | { type: "backend"; backend: Backend }
   | { type: "model-ready" }
   | {
       type: "transcribe-progress";

@@ -187,6 +187,40 @@ describe("useTranscriber", () => {
     });
   });
 
+  it("backend del worker se expone en el resultado del hook", async () => {
+    const { result } = renderHook(() => useTranscriber());
+    act(() => {
+      fakeWorker.emit({ type: "backend", backend: "webgpu" });
+    });
+    expect(result.current.backend).toBe("webgpu");
+  });
+
+  it("backend wasm también se expone correctamente", async () => {
+    const { result } = renderHook(() => useTranscriber());
+    act(() => {
+      fakeWorker.emit({ type: "backend", backend: "wasm" });
+    });
+    expect(result.current.backend).toBe("wasm");
+  });
+
+  it("backend persiste tras reset", async () => {
+    const { result } = renderHook(() => useTranscriber());
+    act(() => {
+      fakeWorker.emit({ type: "backend", backend: "webgpu" });
+      fakeWorker.emit({ type: "model-loading-started" });
+      fakeWorker.emit({ type: "model-ready" });
+    });
+
+    const file = new File([new Uint8Array([1])], "voz.opus");
+    await act(async () => {
+      await result.current.selectFile(file);
+    });
+    act(() => fakeWorker.emit({ type: "transcribe-done", text: "hola" }));
+
+    act(() => result.current.reset());
+    expect(result.current.backend).toBe("webgpu");
+  });
+
   it("reset desde done vuelve a model-ready", async () => {
     const { result } = renderHook(() => useTranscriber());
     act(() => {

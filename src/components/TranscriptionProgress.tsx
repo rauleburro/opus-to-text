@@ -1,11 +1,18 @@
+import type { Backend } from "../lib/worker-protocol";
+
 export interface TranscriptionProgressProps {
   chunkIndex?: number;
   totalChunks?: number;
+  backend?: Backend;
 }
+
+const backendLabel = (backend: Backend): string =>
+  backend === "webgpu" ? "Procesando con WebGPU" : "Procesando con WASM (más lento)";
 
 export function TranscriptionProgress({
   chunkIndex,
   totalChunks,
+  backend,
 }: TranscriptionProgressProps) {
   const hasProgress =
     typeof chunkIndex === "number" && typeof totalChunks === "number" && totalChunks > 0;
@@ -33,6 +40,9 @@ export function TranscriptionProgress({
           style={{ width: percent !== null ? `${percent}%` : "30%" }}
         />
       </div>
+      {backend && (
+        <p className="text-xs text-slate-500">{backendLabel(backend)}</p>
+      )}
     </div>
   );
 }

@@ -31,26 +31,33 @@ const ensureModel = async (): Promise<void> => {
 
   initPromise = (async () => {
     post({ type: "model-loading-started" });
+
+    const progress_callback = (info: ProgressInfo) => {
+      if (info.status === "progress" && typeof info.progress === "number") {
+        post({
+          type: "model-progress",
+          percent: Math.round(info.progress),
+          file: info.file,
+          bytesLoaded: info.loaded,
+          bytesTotal: info.total,
+        });
+      }
+    };
+
+    const tryLoad = async (device: "webgpu" | "wasm"): Promise<Transcriber> =>
+      (await pipeline("automatic-speech-recognition", "Xenova/whisper-small", {
+        device,
+        progress_callback,
+      })) as unknown as Transcriber;
+
     try {
-      const pipe = (await pipeline(
-        "automatic-speech-recognition",
-        "Xenova/whisper-small",
-        {
-          device: "wasm",
-          progress_callback: (info: ProgressInfo) => {
-            if (info.status === "progress" && typeof info.progress === "number") {
-              post({
-                type: "model-progress",
-                percent: Math.round(info.progress),
-                file: info.file,
-                bytesLoaded: info.loaded,
-                bytesTotal: info.total,
-              });
-            }
-          },
-        },
-      )) as unknown as Transcriber;
-      transcriber = pipe;
+      try {
+        transcriber = await tryLoad("webgpu");
+        post({ type: "backend", backend: "webgpu" });
+      } catch {
+        transcriber = await tryLoad("wasm");
+        post({ type: "backend", backend: "wasm" });
+      }
       post({ type: "model-ready" });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
