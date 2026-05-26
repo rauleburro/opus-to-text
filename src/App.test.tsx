@@ -1,6 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { App } from "./App";
+
+vi.mock("./worker/transcriber.worker?worker", () => ({
+  default: vi.fn(() => ({
+    postMessage: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    terminate: vi.fn(),
+  })),
+}));
 
 describe("App", () => {
   it("renderea el título de la app", () => {

@@ -49,6 +49,12 @@ samples/
 *.mp3
 *.wav
 *.m4a
+# ...excepto los fixtures controlados de los tests
+!tests/fixtures/*.opus
+!tests/fixtures/*.ogg
+!tests/fixtures/*.mp3
+!tests/fixtures/*.wav
+!tests/fixtures/*.m4a
 
 # Modelo cacheado (transformers.js puede descargar a disco si se usa Node)
 .cache-transformers/
